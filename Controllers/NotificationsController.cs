@@ -14,68 +14,75 @@ namespace NotificationHub00.Controllers
         private readonly ApplicationDbContext _context;
         private readonly IEnumerable<INotificationService> _notificationServices;
 
-
-
-        // Construtor
-        public NotificationsController(ApplicationDbContext context, IEnumerable<INotificationService> notificationServices)
+        public NotificationsController(
+            ApplicationDbContext context,
+            IEnumerable<INotificationService> notificationServices)
         {
             _context = context;
             _notificationServices = notificationServices;
         }
 
-
-        // CRUD: Create (Envia e Salva)
+        // =========================
+        // CREATE (POST)
+        // =========================
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] NotificationInputModel model)
         {
-            var notification = new Notification(model.Target, model.Message, model.Channel);
+            if (model == null)
+                return BadRequest("Body não pode ser nulo.");
 
-            // Resolve dinamicamente o serviço correto usando Polimorfismo
-            var service = _notificationServices.FirstOrDefault(s => s.Channel.Equals(model.Channel, StringComparison.OrdinalIgnoreCase));
-
-            if (service == null)
+            if (string.IsNullOrWhiteSpace(model.Target) ||
+                string.IsNullOrWhiteSpace(model.Message) ||
+                string.IsNullOrWhiteSpace(model.Channel))
             {
-                return BadRequest("Canal de notificação não suportado.");
+                return BadRequest("Target, Message e Channel são obrigatórios.");
             }
 
-            // Executa o envio mocado
+            var notification = new Notification(model.Target, model.Message, model.Channel);
+
+            var service = _notificationServices.FirstOrDefault(s =>
+                !string.IsNullOrWhiteSpace(s.Channel) &&
+                s.Channel.Equals(model.Channel, StringComparison.OrdinalIgnoreCase));
+
+            if (service == null)
+                return BadRequest("Canal de notificação não suportado.");
+
             var sent = await service.SendNotificationsAsync(notification);
 
             if (!sent)
-            {
-                return StatusCode(500, "Erro ao processar o envio da notificação.");
-            }
+                return StatusCode(500, "Erro ao processar envio da notificação.");
 
-            // Salva o histórico no PostgreSQL
             _context.Notifications.Add(notification);
             await _context.SaveChangesAsync();
 
             return CreatedAtAction(nameof(GetById), new { id = notification.Id }, notification);
         }
 
-
-        // CRUD: Read (Listar todas)
+        // =========================
+        // READ ALL (GET)
+        // =========================
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
-            var list = await _context.Notifications.OrderByDescending(n => n.CreatedAt).ToListAsync();
+            var list = await _context.Notifications
+                .OrderByDescending(n => n.CreatedAt)
+                .ToListAsync();
+
             return Ok(list);
         }
 
-        // CRUD: Read (Buscar por ID)
+        // =========================
+        // READ BY ID (GET)
+        // =========================
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(Guid id)
         {
             var notification = await _context.Notifications.FindAsync(id);
+
             if (notification == null)
-            {
                 return NotFound();
-            }
+
             return Ok(notification);
-
         }
-
-        // DTO auxiliar para receber os dados do Frontend de forma segura
-
     }
 }
