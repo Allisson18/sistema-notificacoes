@@ -3,9 +3,9 @@
     public class Notification
     {
         public Guid Id { get; private set; }
-        public string Target { get; set; }
-        public string Message { get; set; }
-        public string Channel { get; set; }// "Email" ou "SMS"
+        public string? Target { get; set; }
+        public string? Message { get; set; }
+        public string? Channel { get; set; }// "Email" ou "SMS"
         public DateTime CreatedAt { get; private set; }
 
 
