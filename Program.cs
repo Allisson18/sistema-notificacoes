@@ -1,4 +1,3 @@
-
 using Microsoft.EntityFrameworkCore;
 using NotificationHub00.Data;
 using NotificationHub00.Interfaces;
@@ -6,51 +5,70 @@ using NotificationHub00.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-
-// 1. Configurar Conexão do PostgreSQL
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-
-
+//
+// 1. CONEXÃO COM BANCO (Render + Local)
+// O ASP.NET Core vai ler automaticamente:
+// ConnectionStrings__DefaultConnection
+//
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseNpgsql(connectionString));
+{
+    options.UseNpgsql(
+        builder.Configuration.GetConnectionString("DefaultConnection")
+    );
+});
 
-// 2. Registrar os serviços para habilitar o Polimorfismo
+//
+// 2. REGISTRO DE SERVIÇOS (Polimorfismo)
+//
 builder.Services.AddScoped<INotificationService, EmailNotificationService>();
 builder.Services.AddScoped<INotificationService, SmsNotificationService>();
 
-// 3. Habilitar CORS para permitir que sua página HTML local acesse a API
+//
+// 3. CORS (Frontend externo/local)
+//
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll", builder =>
+    options.AddPolicy("AllowAll", policy =>
     {
-        builder.AllowAnyOrigin()
-               .AllowAnyMethod()
-               .AllowAnyHeader();
+        policy.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader();
     });
 });
 
-
-
 builder.Services.AddControllers();
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
+
+// OpenAPI / Swagger (se estiver usando)
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+//
+// 4. MIGRATION AUTOMÁTICA (produção)
+//
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    db.Database.Migrate();
+}
+
+//
+// 5. PIPELINE HTTP
+//
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
 
-app.UseCors("AllowAll"); // Habilita CORS
+app.UseCors("AllowAll");
 
 app.UseHttpsRedirection();
 
 app.UseAuthorization();
 
-// Habilitar o Frontend integrado (wwwroot). Para o .NET servir o seu HTML automaticamente
+//
+// 6. FRONTEND ESTÁTICO (wwwroot)
+//
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
