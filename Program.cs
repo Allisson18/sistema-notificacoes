@@ -6,25 +6,36 @@ using NotificationHub00.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 //
-// 1. CONEXÃO COM BANCO (Render + Local)
-// O ASP.NET Core vai ler automaticamente:
-// ConnectionStrings__DefaultConnection
+// =========================
+// 1. CONNECTION STRING
+// =========================
+// Render: ConnectionStrings__DefaultConnection
+// Local: appsettings.json
 //
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+
+if (string.IsNullOrWhiteSpace(connectionString))
+{
+    throw new Exception("Connection string 'DefaultConnection' não encontrada.");
+}
+
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
 {
-    options.UseNpgsql(
-        builder.Configuration.GetConnectionString("DefaultConnection")
-    );
+    options.UseNpgsql(connectionString);
 });
 
 //
-// 2. REGISTRO DE SERVIÇOS (Polimorfismo)
+// =========================
+// 2. SERVICES (Polimorfismo)
+// =========================
 //
 builder.Services.AddScoped<INotificationService, EmailNotificationService>();
 builder.Services.AddScoped<INotificationService, SmsNotificationService>();
 
 //
-// 3. CORS (Frontend externo/local)
+// =========================
+// 3. CORS
+// =========================
 //
 builder.Services.AddCors(options =>
 {
@@ -38,22 +49,32 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddControllers();
 
-// OpenAPI / Swagger (se estiver usando)
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
 
 //
-// 4. MIGRATION AUTOMÁTICA (produção)
+// =========================
+// 4. MIGRATIONS (SAFE)
+// =========================
 //
 using (var scope = app.Services.CreateScope())
 {
-    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    db.Database.Migrate();
+    try
+    {
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        db.Database.Migrate();
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine("Erro ao aplicar migrations: " + ex.Message);
+    }
 }
 
 //
-// 5. PIPELINE HTTP
+// =========================
+// 5. HTTP PIPELINE
+// =========================
 //
 if (app.Environment.IsDevelopment())
 {
@@ -67,7 +88,9 @@ app.UseHttpsRedirection();
 app.UseAuthorization();
 
 //
-// 6. FRONTEND ESTÁTICO (wwwroot)
+// =========================
+// 6. STATIC FRONTEND (wwwroot)
+// =========================
 //
 app.UseDefaultFiles();
 app.UseStaticFiles();
