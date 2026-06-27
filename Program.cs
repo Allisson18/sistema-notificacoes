@@ -16,16 +16,20 @@ if (string.IsNullOrEmpty(connectionString))
     connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 }
 
-// 3. Se for a URL do Render, converte para o formato que o .NET entende
-if (connectionString != null && connectionString.StartsWith("postgres://"))
+// 3. Converte o formato do Render (postgresql://) para o formato que o .NET entende
+if (connectionString != null && (connectionString.StartsWith("postgres://") || connectionString.StartsWith("postgresql://")))
 {
-    var databaseUri = new Uri(connectionString);
+    // Remove o 'postgresql://' ou 'postgres://' para não quebrar o UriBuilder
+    var scheme = connectionString.StartsWith("postgresql://") ? "postgresql://" : "postgres://";
+    var cleanUrl = connectionString.Replace(scheme, "http://"); // Truque técnico para o Uri ler o host corretamente
+
+    var databaseUri = new Uri(cleanUrl);
     var userInfo = databaseUri.UserInfo.Split(':');
 
     var npgsqlBuilder = new NpgsqlConnectionStringBuilder
     {
         Host = databaseUri.Host,
-        Port = databaseUri.Port,
+        Port = databaseUri.Port > 0 ? databaseUri.Port : 5432,
         Username = userInfo[0],
         Password = userInfo[1],
         Database = databaseUri.LocalPath.TrimStart('/'),
