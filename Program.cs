@@ -2,66 +2,83 @@ using Microsoft.EntityFrameworkCore;
 using NotificationHub00.Data;
 using NotificationHub00.Interfaces;
 using NotificationHub00.Services;
+using Npgsql;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+// --- CORREÇÃO DA CONEXÃO (BLINDADA PARA LOCAL E NUVEM) ---
+// 1. Tenta ler a variável simplificada do Render
+var connectionString = Environment.GetEnvironmentVariable("DATABASE_URL");
 
-// 1. Configurar Conexão do PostgreSQL
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+// 2. Se estiver vazio (Localhost), usa o appsettings.json
+if (string.IsNullOrEmpty(connectionString))
+{
+    connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+}
+
+// 3. Se for a URL do Render, converte para o formato que o .NET entende
+if (connectionString != null && connectionString.StartsWith("postgres://"))
+{
+    var databaseUri = new Uri(connectionString);
+    var userInfo = databaseUri.UserInfo.Split(':');
+
+    var npgsqlBuilder = new NpgsqlConnectionStringBuilder
+    {
+        Host = databaseUri.Host,
+        Port = databaseUri.Port,
+        Username = userInfo[0],
+        Password = userInfo[1],
+        Database = databaseUri.LocalPath.TrimStart('/'),
+        SslMode = SslMode.Require
+    };
+    connectionString = npgsqlBuilder.ToString();
+}
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(connectionString));
+// ---------------------------------------------------------
 
-// 2. Registrar os serviços para habilitar o Polimorfismo
+// Registrar os serviços para habilitar o Polimorfismo
 builder.Services.AddScoped<INotificationService, EmailNotificationService>();
 builder.Services.AddScoped<INotificationService, SmsNotificationService>();
 
-// 3. Habilitar CORS para permitir que sua página HTML local acesse a API
+// Habilitar CORS
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll", builder =>
+    options.AddPolicy("AllowAll", policy =>
     {
-        builder.AllowAnyOrigin()
+        policy.AllowAnyOrigin()
                .AllowAnyMethod()
                .AllowAnyHeader();
     });
 });
 
-
-
 builder.Services.AddControllers();
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
 
-app.UseCors("AllowAll"); // Habilita CORS
-
-app.UseHttpsRedirection();
-
+app.UseCors("AllowAll");
 app.UseAuthorization();
 
-// Habilitar o Frontend integrado (wwwroot). Para o .NET servir o seu HTML automaticamente
+// Habilitar o Frontend integrado (wwwroot)
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
 app.MapControllers();
 
-
+// Executa as migrações e cria as tabelas automaticamente na inicialização
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
     try
     {
         var context = services.GetRequiredService<ApplicationDbContext>();
-        // Executa as migrações e cria o banco/tabelas se não existirem
         context.Database.Migrate();
         Console.WriteLine("[DATABASE] Migrações aplicadas com sucesso no Render!");
     }
