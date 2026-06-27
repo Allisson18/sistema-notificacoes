@@ -54,4 +54,21 @@ app.UseStaticFiles();
 
 app.MapControllers();
 
+
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    try
+    {
+        var context = services.GetRequiredService<ApplicationDbContext>();
+        // Executa as migrações e cria o banco/tabelas se não existirem
+        context.Database.Migrate();
+        Console.WriteLine("[DATABASE] Migrações aplicadas com sucesso no Render!");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"[DATABASE ERROR] Erro ao aplicar migrações: {ex.Message}");
+    }
+}
+
 app.Run();
