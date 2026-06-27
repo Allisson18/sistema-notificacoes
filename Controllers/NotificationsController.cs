@@ -64,12 +64,11 @@ namespace NotificationHub00.Controllers
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
-            //var list = await _context.Notifications
-            //    .OrderByDescending(n => n.CreatedAt)
-            //    .ToListAsync();
+            var list = await _context.Notifications
+                .OrderByDescending(n => n.CreatedAt)
+                .ToListAsync();
 
-            //return Ok(list);
-            return Ok("API rodando");
+            return Ok(list);
         }
 
         // =========================
