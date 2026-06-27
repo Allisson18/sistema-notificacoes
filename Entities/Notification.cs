@@ -11,7 +11,7 @@
 
 
         // Construtor exigido pelo EF Core
-        public Notification()
+        protected Notification()
         {
             
         }
