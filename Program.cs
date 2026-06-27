@@ -48,6 +48,10 @@ app.UseHttpsRedirection();
 
 app.UseAuthorization();
 
+// Habilitar o Frontend integrado (wwwroot). Para o .NET servir o seu HTML automaticamente
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
 app.MapControllers();
 
 app.Run();

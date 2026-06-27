@@ -48,7 +48,7 @@ namespace NotificationHub00.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Notifications");
+                    b.ToTable("Notifications", (string)null);
                 });
 #pragma warning restore 612, 618
         }

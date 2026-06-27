@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Notificações</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; background-color: #f4f4f9; color: #333; }
+        .container { max-width: 800px; margin: 0 auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        h1, h2 { color: #0056b3; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input, textarea, select { width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+        button { background-color: #0056b3; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
+        button:hover { background-color: #004085; }
+        table { width: 100%; margin-top: 30px; border-collapse: collapse; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background-color: #f2f2f2; }
+        .badge { padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
+        .badge-email { background-color: #d1ecf1; color: #0c5460; }
+        .badge-sms { background-color: #fff3cd; color: #856404; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Painel de Notificações</h1>
+    
+    <h2>Nova Notificação</h2>
+    <form id="notificationForm">
+        <div class="form-group">
+            <label for="channel">Canal de Envio:</label>
+            <select id="channel" required>
+                <option value="Email">E-mail</option>
+                <option value="SMS">SMS</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="target">Destinatário (E-mail ou Telefone):</label>
+            <input type="text" id="target" placeholder="exemplo@email.com ou 11999999999" required>
+        </div>
+        <div class="form-group">
+            <label for="message">Mensagem:</label>
+            <textarea id="message" rows="3" placeholder="Digite o conteúdo da mensagem..." required></textarea>
+        </div>
+        <button type="submit">Enviar Notificação</button>
+    </form>
+
+    <hr style="margin: 40px 0; border: 0; border-top: 1px solid #eee;">
+
+    <h2>Histórico de Envios (Log)</h2>
+    <button onclick="loadNotifications()">Atualizar Lista</button>
+    <table>
+        <thead>
+            <tr>
+                <th>Canal</th>
+                <th>Destinatário</th>
+                <th>Mensagem</th>
+                <th>Data de Envio</th>
+            </tr>
+        </thead>
+        <tbody id="notificationTableBody">
+            </tbody>
+    </table>
+</div>
+
+<script>
+    // URL da sua WebAPI local (ajuste a porta se o seu .NET rodar em outra)
+    // const API_URL = 'http://localhost:5000/api/notifications';
+    const API_URL = '/ api / notifications';
+
+    // Evento de Envio do Formulário (Create do CRUD)
+    document.getElementById('notificationForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const payload = {
+            channel: document.getElementById('channel').value,
+            target: document.getElementById('target').value,
+            message: document.getElementById('message').value
+        };
+
+        try {
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (response.ok) {
+                alert('Notificação processada com sucesso!');
+                document.getElementById('notificationForm').reset();
+                loadNotifications(); // Atualiza a tabela
+            } else {
+                const error = await response.text();
+                alert('Erro ao enviar: ' + error);
+            }
+        } catch (err) {
+            console.error(err);
+            alert('Não foi possível conectar à API.');
+        }
+    });
+
+    // Função para Listar as Notificações (Read do CRUD)
+    async function loadNotifications() {
+        try {
+            const response = await fetch(API_URL);
+            if (!response.ok) return;
+
+            const notifications = await response.json();
+            const tbody = document.getElementById('notificationTableBody');
+            tbody.innerHTML = ''; // Limpa a tabela
+
+            notifications.forEach(item => {
+                const row = document.createElement('tr');
+                
+                const badgeClass = item.channel.toLowerCase() === 'email' ? 'badge-email' : 'badge-sms';
+                const formattedDate = new Date(item.createdAt).toLocaleString('pt-BR');
+
+                row.innerHTML = `
+                    <td><span class="badge ${badgeClass}">${item.channel}</span></td>
+                    <td>${item.target}</td>
+                    <td>${item.message}</td>
+                    <td>${formattedDate}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        } catch (err) {
+            console.error('Erro ao carregar histórico:', err);
+        }
+    }
+
+    // Carrega os dados automaticamente ao abrir a página
+    window.onload = loadNotifications;
+</script>
+
+</body>
+</html>
