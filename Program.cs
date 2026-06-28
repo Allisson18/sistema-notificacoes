@@ -10,7 +10,6 @@ var builder = WebApplication.CreateBuilder(args);
 // 1. CONNECTION STRING
 // =========================
 // Render: ConnectionStrings__DefaultConnection
-// Local: appsettings.json
 //
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
@@ -26,7 +25,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 
 //
 // =========================
-// 2. SERVICES (Polimorfismo)
+// 2. SERVICES (POLIMORFISMO)
 // =========================
 //
 builder.Services.AddScoped<INotificationService, EmailNotificationService>();
@@ -55,15 +54,19 @@ var app = builder.Build();
 
 //
 // =========================
-// 4. MIGRATIONS (SAFE)
+// 4. MIGRATIONS (SAFE + CLOUD READY)
 // =========================
 //
 using (var scope = app.Services.CreateScope())
 {
+    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
     try
     {
-        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        db.Database.Migrate();
+        if (db.Database.GetPendingMigrations().Any())
+        {
+            db.Database.Migrate();
+        }
     }
     catch (Exception ex)
     {
@@ -73,7 +76,7 @@ using (var scope = app.Services.CreateScope())
 
 //
 // =========================
-// 5. HTTP PIPELINE
+// 5. PIPELINE HTTP
 // =========================
 //
 if (app.Environment.IsDevelopment())
@@ -89,12 +92,9 @@ app.UseAuthorization();
 
 //
 // =========================
-// 6. STATIC FRONTEND (wwwroot)
+// 6. CONTROLLERS
 // =========================
 //
-app.UseDefaultFiles();
-app.UseStaticFiles();
-
 app.MapControllers();
 
 app.Run();
