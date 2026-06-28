@@ -7,15 +7,33 @@ var builder = WebApplication.CreateBuilder(args);
 
 //
 // =========================
-// 1. CONNECTION STRING
+// 1. CONNECTION STRING (LOCAL + RENDER)
 // =========================
-// Render: ConnectionStrings__DefaultConnection
 //
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+string connectionString;
 
-if (string.IsNullOrWhiteSpace(connectionString))
+var databaseUrl = builder.Configuration["DATABASE_URL"];
+
+if (!string.IsNullOrWhiteSpace(databaseUrl))
 {
-    throw new Exception("Connection string 'DefaultConnection' não encontrada.");
+    // PRODUÇÃO (Render - DATABASE_URL)
+    var uri = new Uri(databaseUrl);
+    var userInfo = uri.UserInfo.Split(':');
+
+    connectionString =
+        $"Host={uri.Host};" +
+        $"Port=5432;" +
+        $"Database={uri.AbsolutePath.Trim('/')};" +
+        $"Username={userInfo[0]};" +
+        $"Password={userInfo[1]};" +
+        $"SSL Mode=Require;Trust Server Certificate=true;";
+}
+else
+{
+    // DESENVOLVIMENTO LOCAL
+    connectionString =
+        builder.Configuration.GetConnectionString("DefaultConnection")
+        ?? throw new Exception("Connection string 'DefaultConnection' não encontrada.");
 }
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
@@ -47,14 +65,34 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services.AddControllers();
-
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
 
 //
 // =========================
-// 4. MIGRATIONS (SAFE + CLOUD READY)
+// 4. MIDDLEWARE PIPELINE
+// =========================
+//
+
+// Arquivos estáticos (frontend wwwroot)
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
+if (app.Environment.IsDevelopment())
+{
+    app.MapOpenApi();
+}
+
+app.UseCors("AllowAll");
+
+app.UseHttpsRedirection();
+
+app.UseAuthorization();
+
+//
+// =========================
+// 5. MIGRATIONS (AUTO APPLY SAFE)
 // =========================
 //
 using (var scope = app.Services.CreateScope())
@@ -73,22 +111,6 @@ using (var scope = app.Services.CreateScope())
         Console.WriteLine("Erro ao aplicar migrations: " + ex.Message);
     }
 }
-
-//
-// =========================
-// 5. PIPELINE HTTP
-// =========================
-//
-if (app.Environment.IsDevelopment())
-{
-    app.MapOpenApi();
-}
-
-app.UseCors("AllowAll");
-
-app.UseHttpsRedirection();
-
-app.UseAuthorization();
 
 //
 // =========================
